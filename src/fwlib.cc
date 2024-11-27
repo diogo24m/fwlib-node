@@ -41,10 +41,12 @@ napi_value Fwlib::Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_METHOD("rdprogline", Rdprogline),
       DECLARE_NAPI_METHOD("rdprogline2", Rdprogline2),
       DECLARE_NAPI_METHOD("rdexecprog", Rdexecprog),
+      DECLARE_NAPI_METHOD("rdprogdir2", Rdprogdir2),
+      DECLARE_NAPI_METHOD("rdprogdir3", Rdprogdir3),
   };
 
   napi_value cons;
-  status = napi_define_class(env, "Fwlib", NAPI_AUTO_LENGTH, New, nullptr, 15,
+  status = napi_define_class(env, "Fwlib", NAPI_AUTO_LENGTH, New, nullptr, 17,
                              properties, &cons);
   assert(status == napi_ok);
   napi_ref* constructor = new napi_ref;
@@ -1244,6 +1246,214 @@ napi_value Fwlib::Rdexecprog(napi_env env, napi_callback_info info) {
   assert(status == napi_ok);
   status = napi_set_named_property(env, result, "data", val);
   assert(status == napi_ok);
+
+  return result;
+}
+
+napi_value Fwlib::Rdprogdir2(napi_env env, napi_callback_info info) {
+  napi_status status;
+
+  napi_value jsthis;
+  status = napi_get_cb_info(env, info, nullptr, nullptr, &jsthis, nullptr);
+  assert(status == napi_ok);
+
+  Fwlib* obj;
+  status = napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj));
+  assert(status == napi_ok);
+
+  short type = 2; // Read "Program number", "Comment" and "Program size"
+  short top_prog = 0;
+  short num_prog;
+  const short BUFSIZE = 100;
+
+  PRGDIR2 prg[BUFSIZE];
+  napi_value result;
+  status = napi_create_array(env, &result);
+  assert(status == napi_ok);
+
+  do {
+    num_prog = BUFSIZE;
+    short ret = cnc_rdprogdir2(obj->libh, type, &top_prog, &num_prog, prg);
+
+    if (ret == EW_NUMBER) {
+      break;
+    }
+
+    if (ret != EW_OK) {
+      char code[8] = "";
+      const char* msg = "An unknown error occurred.";
+      snprintf(code, 7, "%d", ret);
+      status = napi_throw_error(env, code, msg);
+      assert(status == napi_ok);
+      return nullptr;
+    }
+
+    for (short i = 0; i < num_prog; i++) {
+      napi_value prog_obj;
+      status = napi_create_object(env, &prog_obj);
+      assert(status == napi_ok);
+
+      napi_value val;
+      status = napi_create_uint32(env, prg[i].number, &val);
+      assert(status == napi_ok);
+      status = napi_set_named_property(env, prog_obj, "number", val);
+      assert(status == napi_ok);
+
+      status = napi_create_string_utf8(env, prg[i].comment, 51, &val);
+      assert(status == napi_ok);
+      status = napi_set_named_property(env, prog_obj, "comment", val);
+      assert(status == napi_ok);
+
+      status = napi_create_uint32(env, prg[i].length, &val);
+      assert(status == napi_ok);
+      status = napi_set_named_property(env, prog_obj, "length", val);
+      assert(status == napi_ok);
+
+      uint32_t array_length;
+      status = napi_get_array_length(env, result, &array_length);
+      assert(status == napi_ok);
+      status = napi_set_element(env, result, array_length, prog_obj);
+      assert(status == napi_ok);
+    }
+
+    top_prog = prg[num_prog - 1].number + 1;
+  } while (num_prog >= BUFSIZE);
+
+  return result;
+}
+
+napi_value Fwlib::Rdprogdir3(napi_env env, napi_callback_info info) {
+  napi_status status;
+
+  napi_value jsthis;
+  status = napi_get_cb_info(env, info, nullptr, nullptr, &jsthis, nullptr);
+  assert(status == napi_ok);
+
+  Fwlib* obj;
+  status = napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj));
+  assert(status == napi_ok);
+
+  short type = 2; // Read "Program number", "Comment", "Date" and "Program size"
+  long top_prog = 0;
+  short num_prog;
+  const short BUFSIZE = 100;
+
+  PRGDIR3 prg[BUFSIZE];
+  napi_value result;
+  status = napi_create_array(env, &result);
+  assert(status == napi_ok);
+
+  do {
+    num_prog = BUFSIZE;
+    short ret = cnc_rdprogdir3(obj->libh, type, &top_prog, &num_prog, prg);
+
+    if (ret == EW_NUMBER) {
+      break;
+    }
+
+    if (ret != EW_OK) {
+      char code[8] = "";
+      const char* msg = "An unknown error occurred.";
+      snprintf(code, 7, "%d", ret);
+      status = napi_throw_error(env, code, msg);
+      assert(status == napi_ok);
+      return nullptr;
+    }
+
+    for (short i = 0; i < num_prog; i++) {
+      napi_value prog_obj;
+      status = napi_create_object(env, &prog_obj);
+      assert(status == napi_ok);
+
+      napi_value val;
+      status = napi_create_uint32(env, prg[i].number, &val);
+      assert(status == napi_ok);
+      status = napi_set_named_property(env, prog_obj, "number", val);
+      assert(status == napi_ok);
+
+      status = napi_create_string_utf8(env, prg[i].comment, 52, &val);
+      assert(status == napi_ok);
+      status = napi_set_named_property(env, prog_obj, "comment", val);
+      assert(status == napi_ok);
+
+      napi_value mdate_obj;
+      status = napi_create_object(env, &mdate_obj);
+      assert(status == napi_ok);
+
+      status = napi_create_uint32(env, prg[i].mdate.year, &val);
+      assert(status == napi_ok);
+      status = napi_set_named_property(env, mdate_obj, "year", val);
+      assert(status == napi_ok);
+
+      status = napi_create_uint32(env, prg[i].mdate.month, &val);
+      assert(status == napi_ok);
+      status = napi_set_named_property(env, mdate_obj, "month", val);
+      assert(status == napi_ok);
+
+      status = napi_create_uint32(env, prg[i].mdate.day, &val);
+      assert(status == napi_ok);
+      status = napi_set_named_property(env, mdate_obj, "day", val);
+      assert(status == napi_ok);
+
+      status = napi_create_uint32(env, prg[i].mdate.hour, &val);
+      assert(status == napi_ok);
+      status = napi_set_named_property(env, mdate_obj, "hour", val);
+      assert(status == napi_ok);
+
+      status = napi_create_uint32(env, prg[i].mdate.minute, &val);
+      assert(status == napi_ok);
+      status = napi_set_named_property(env, mdate_obj, "minute", val);
+      assert(status == napi_ok);
+
+      status = napi_set_named_property(env, prog_obj, "modified_date", mdate_obj);
+      assert(status == napi_ok);
+
+      napi_value cdate_obj;
+      status = napi_create_object(env, &cdate_obj);
+      assert(status == napi_ok);
+
+      status = napi_create_uint32(env, prg[i].cdate.year, &val);
+      assert(status == napi_ok);
+      status = napi_set_named_property(env, cdate_obj, "year", val);
+      assert(status == napi_ok);
+
+      status = napi_create_uint32(env, prg[i].cdate.month, &val);
+      assert(status == napi_ok);
+      status = napi_set_named_property(env, cdate_obj, "month", val);
+      assert(status == napi_ok);
+
+      status = napi_create_uint32(env, prg[i].cdate.day, &val);
+      assert(status == napi_ok);
+      status = napi_set_named_property(env, cdate_obj, "day", val);
+      assert(status == napi_ok);
+
+      status = napi_create_uint32(env, prg[i].cdate.hour, &val);
+      assert(status == napi_ok);
+      status = napi_set_named_property(env, cdate_obj, "hour", val);
+      assert(status == napi_ok);
+
+      status = napi_create_uint32(env, prg[i].cdate.minute, &val);
+      assert(status == napi_ok);
+      status = napi_set_named_property(env, cdate_obj, "minute", val);
+      assert(status == napi_ok);
+
+      status = napi_set_named_property(env, prog_obj, "created_date", cdate_obj);
+      assert(status == napi_ok);
+
+      status = napi_create_uint32(env, prg[i].length, &val);
+      assert(status == napi_ok);
+      status = napi_set_named_property(env, prog_obj, "length", val);
+      assert(status == napi_ok);
+
+      uint32_t array_length;
+      status = napi_get_array_length(env, result, &array_length);
+      assert(status == napi_ok);
+      status = napi_set_element(env, result, array_length, prog_obj);
+      assert(status == napi_ok);
+    }
+
+    top_prog = prg[num_prog - 1].number + 1;
+  } while (num_prog >= BUFSIZE);
 
   return result;
 }

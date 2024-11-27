@@ -26,4 +26,6 @@ console.log('rddynamic2', obj.rddynamic2());
 
 console.log('rdsvmeter', obj.rdsvmeter());
 
+console.log('rdprogdir2', obj.rdprogdir2());
+
 obj.disconnect();
