@@ -1,6 +1,6 @@
-var {Fwlib} = require('./index.js');
+const {Fwlib} = require('./index.js');
 
-var obj = new Fwlib('localhost', 8193);
+const obj = new Fwlib('localhost', 8193);
 obj.connect();
 
 const cncid = obj.rdcncid()

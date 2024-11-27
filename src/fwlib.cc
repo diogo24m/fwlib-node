@@ -38,10 +38,12 @@ napi_value Fwlib::Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_METHOD("statinfo", Statinfo),
       DECLARE_NAPI_METHOD("rddynamic2", Rddynamic2),
       DECLARE_NAPI_METHOD("rdsvmeter", Rdsvmeter),
+      DECLARE_NAPI_METHOD("rdprogline", Rdprogline),
+      DECLARE_NAPI_METHOD("rdprogline2", Rdprogline2),
   };
 
   napi_value cons;
-  status = napi_define_class(env, "Fwlib", NAPI_AUTO_LENGTH, New, nullptr, 12,
+  status = napi_define_class(env, "Fwlib", NAPI_AUTO_LENGTH, New, nullptr, sizeof(properties),
                              properties, &cons);
   assert(status == napi_ok);
   napi_ref* constructor = new napi_ref;
@@ -999,3 +1001,175 @@ napi_value Fwlib::Rdsvmeter(napi_env env, napi_callback_info info) {
   return result;
 }
 
+napi_value Fwlib::Rdprogline(napi_env env, napi_callback_info info) {
+  napi_status status;
+
+  size_t argc = 3;
+  napi_value args[3];
+  napi_value jsthis;
+  status = napi_get_cb_info(env, info, &argc, args, &jsthis, nullptr);
+  assert(status == napi_ok);
+
+  if (argc < 3) {
+    napi_throw_type_error(env, nullptr, "Expected 3 arguments: program number, line number, data length");
+    return nullptr;
+  }
+
+  // Get the arguments from JavaScript
+  int32_t prog_no;
+  uint32_t line_no;
+  uint32_t data_len;
+  status = napi_get_value_int32(env, args[0], &prog_no);
+  assert(status == napi_ok);
+  status = napi_get_value_uint32(env, args[1], &line_no);
+  assert(status == napi_ok);
+  status = napi_get_value_uint32(env, args[2], &data_len);
+  assert(status == napi_ok);
+
+  Fwlib* obj;
+  status = napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj));
+  assert(status == napi_ok);
+
+  short ret;
+  char buffer[data_len + 1];  // Allocate buffer with an extra byte for null-termination
+  memset(buffer, 0, sizeof(buffer));
+
+  unsigned long line_len = 1; // Read one line at a time
+  unsigned long actual_data_len = data_len;
+  ret = cnc_rdprogline(obj->libh, prog_no, line_no, buffer, &line_len, &actual_data_len);
+
+  if (ret != EW_OK) {
+    char code[8] = "";
+    snprintf(code, sizeof(code), "%d", ret);
+    const char* msg;
+    switch (ret) {
+      case EW_BUSY:
+        msg = "CNC is busy or an alarm exists.";
+        break;
+      case EW_DATA:
+        msg = "Data error: Invalid program number, line number, or line length.";
+        break;
+      case EW_NOOPT:
+        msg = "Required option is not available.";
+        break;
+      case EW_MODE:
+        msg = "CNC mode error.";
+        break;
+      case EW_PROT:
+        msg = "Write protection error on CNC side.";
+        break;
+      case EW_REJECT:
+        msg = "CNC execution denied, possibly due to MDI or background edit.";
+        break;
+      default:
+        msg = "An unknown error occurred.";
+        break;
+    }
+    status = napi_throw_error(env, code, msg);
+    assert(status == napi_ok);
+    return nullptr;
+  }
+
+  napi_value result;
+  status = napi_create_object(env, &result);
+  assert(status == napi_ok);
+
+  napi_value val;
+  status = napi_create_uint32(env, line_len, &val);
+  assert(status == napi_ok);
+  status = napi_set_named_property(env, result, "read_lines", val);
+  assert(status == napi_ok);
+
+  status = napi_create_string_utf8(env, buffer, actual_data_len, &val);
+  assert(status == napi_ok);
+  status = napi_set_named_property(env, result, "data", val);
+  assert(status == napi_ok);
+
+  return result;
+}
+
+napi_value Fwlib::Rdprogline2(napi_env env, napi_callback_info info) {
+  napi_status status;
+
+  size_t argc = 3;
+  napi_value args[3];
+  napi_value jsthis;
+  status = napi_get_cb_info(env, info, &argc, args, &jsthis, nullptr);
+  assert(status == napi_ok);
+
+  if (argc < 3) {
+    napi_throw_type_error(env, nullptr, "Expected 3 arguments: program number, line number, data length");
+    return nullptr;
+  }
+
+  // Get the arguments from JavaScript
+  int32_t prog_no;
+  uint32_t line_no, data_len;
+  status = napi_get_value_int32(env, args[0], &prog_no);
+  assert(status == napi_ok);
+  status = napi_get_value_uint32(env, args[1], &line_no);
+  assert(status == napi_ok);
+  status = napi_get_value_uint32(env, args[2], &data_len);
+  assert(status == napi_ok);
+
+  Fwlib* obj;
+  status = napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj));
+  assert(status == napi_ok);
+
+  short ret;
+  char buffer[data_len + 1];  // Allocate buffer with an extra byte for null-termination
+  memset(buffer, 0, sizeof(buffer));
+
+  unsigned long line_len = 10; // Attempt to read up to 10 lines
+  unsigned long actual_data_len = data_len;
+  ret = cnc_rdprogline2(obj->libh, prog_no, line_no, buffer, &line_len, &actual_data_len);
+
+  if (ret != EW_OK) {
+    char code[8] = "";
+    snprintf(code, sizeof(code), "%d", ret);
+    const char* msg;
+    switch (ret) {
+      case EW_BUSY:
+        msg = "CNC is busy or an alarm exists.";
+        break;
+      case EW_DATA:
+        msg = "Data error: Invalid program number, line number, or line length.";
+        break;
+      case EW_NOOPT:
+        msg = "Required option is not available.";
+        break;
+      case EW_MODE:
+        msg = "CNC mode error.";
+        break;
+      case EW_PROT:
+        msg = "Write protection error on CNC side.";
+        break;
+      case EW_REJECT:
+        msg = "CNC execution denied, possibly due to MDI or background edit.";
+        break;
+      default:
+        msg = "An unknown error occurred.";
+        break;
+    }
+    status = napi_throw_error(env, code, msg);
+    assert(status == napi_ok);
+    return nullptr;
+  }
+
+  napi_value result;
+  status = napi_create_object(env, &result);
+  assert(status == napi_ok);
+
+  napi_value val;
+  status = napi_create_uint32(env, line_len, &val);
+  assert(status == napi_ok);
+  status = napi_set_named_property(env, result, "read_lines", val);
+  assert(status == napi_ok);
+
+  status = napi_create_string_utf8(env, buffer, actual_data_len, &val);
+  assert(status == napi_ok);
+  status = napi_set_named_property(env, result, "data", val);
+  assert(status == napi_ok);
+
+  return result;
+}
