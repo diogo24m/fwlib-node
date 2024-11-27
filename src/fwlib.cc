@@ -41,11 +41,10 @@ napi_value Fwlib::Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_METHOD("rdprogline", Rdprogline),
       DECLARE_NAPI_METHOD("rdprogline2", Rdprogline2),
       DECLARE_NAPI_METHOD("rdexecprog", Rdexecprog),
-      DECLARE_NAPI_METHOD("searchword", Searchword),
   };
 
   napi_value cons;
-  status = napi_define_class(env, "Fwlib", NAPI_AUTO_LENGTH, New, nullptr, 16,
+  status = napi_define_class(env, "Fwlib", NAPI_AUTO_LENGTH, New, nullptr, 15,
                              properties, &cons);
   assert(status == napi_ok);
   napi_ref* constructor = new napi_ref;
@@ -1244,89 +1243,6 @@ napi_value Fwlib::Rdexecprog(napi_env env, napi_callback_info info) {
   status = napi_create_string_utf8(env, buffer, length, &val);
   assert(status == napi_ok);
   status = napi_set_named_property(env, result, "data", val);
-  assert(status == napi_ok);
-
-  return result;
-}
-
-napi_value Fwlib::Searchword(napi_env env, napi_callback_info info) {
-  napi_status status;
-
-  size_t argc = 6;
-  napi_value args[6];
-  napi_value jsthis;
-  status = napi_get_cb_info(env, info, &argc, args, &jsthis, nullptr);
-  if (status != napi_ok) {
-    napi_throw_error(env, nullptr, "Failed to get callback info");
-    return nullptr;
-  }
-
-  if (argc < 6) {
-    napi_throw_type_error(env, nullptr, "Expected 6 arguments: program number, line number, type, direction, repeat, and search string");
-    return nullptr;
-  }
-
-  // Get the arguments from JavaScript
-  int32_t prog_no;
-  uint32_t line_no;
-  int32_t type;
-  int32_t direct;
-  uint32_t repeat;
-  char prog_data[128];
-  size_t prog_data_len;
-
-  status = napi_get_value_int32(env, args[0], &prog_no);
-  assert(status == napi_ok);
-  status = napi_get_value_uint32(env, args[1], &line_no);
-  assert(status == napi_ok);
-  status = napi_get_value_int32(env, args[2], &type);
-  assert(status == napi_ok);
-  status = napi_get_value_int32(env, args[3], &direct);
-  assert(status == napi_ok);
-  status = napi_get_value_uint32(env, args[4], &repeat);
-  assert(status == napi_ok);
-  status = napi_get_value_string_utf8(env, args[5], prog_data, sizeof(prog_data), &prog_data_len);
-  assert(status == napi_ok);
-
-  Fwlib* obj;
-  status = napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj));
-  assert(status == napi_ok);
-
-  short ret = cnc_searchword(obj->libh, prog_no, line_no, type, direct, repeat, prog_data);
-
-  if (ret != EW_OK) {
-    char code[8] = "";
-    snprintf(code, sizeof(code), "%d", ret);
-    const char* msg;
-    switch (ret) {
-      case EW_BUSY:
-        msg = "CNC is busy or an alarm exists.";
-        break;
-      case EW_DATA:
-        msg = "Data error: Invalid input data (program number, line number, type, direction, repeat, or string).";
-        break;
-      case EW_NOOPT:
-        msg = "Required option is not available.";
-        break;
-      case EW_MODE:
-        msg = "CNC mode error.";
-        break;
-      case EW_PROT:
-        msg = "Write protection error on CNC side.";
-        break;
-      case EW_REJECT:
-        msg = "CNC execution denied, possibly due to MDI or background edit.";
-        break;
-      default:
-        msg = "An unknown error occurred.";
-        break;
-    }
-    napi_throw_error(env, code, msg);
-    return nullptr;
-  }
-
-  napi_value result;
-  status = napi_create_string_utf8(env, "Search completed successfully.", NAPI_AUTO_LENGTH, &result);
   assert(status == napi_ok);
 
   return result;
