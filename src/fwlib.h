@@ -27,6 +27,7 @@ class Fwlib {
   static napi_value Rdsvmeter(napi_env env, napi_callback_info info);
   static napi_value Rdprogline(napi_env env, napi_callback_info info);
   static napi_value Rdprogline2(napi_env env, napi_callback_info info);
+  static napi_value Rdexecprog(napi_env env, napi_callback_info info);
   static inline napi_value Constructor(napi_env env);
 
   bool connected = false;

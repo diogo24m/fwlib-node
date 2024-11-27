@@ -40,6 +40,7 @@ napi_value Fwlib::Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_METHOD("rdsvmeter", Rdsvmeter),
       DECLARE_NAPI_METHOD("rdprogline", Rdprogline),
       DECLARE_NAPI_METHOD("rdprogline2", Rdprogline2),
+      DECLARE_NAPI_METHOD("rdexecprog", Rdexecprog),
   };
 
   napi_value cons;
@@ -1167,6 +1168,79 @@ napi_value Fwlib::Rdprogline2(napi_env env, napi_callback_info info) {
   assert(status == napi_ok);
 
   status = napi_create_string_utf8(env, buffer, actual_data_len, &val);
+  assert(status == napi_ok);
+  status = napi_set_named_property(env, result, "data", val);
+  assert(status == napi_ok);
+
+  return result;
+}
+
+napi_value Fwlib::Rdexecprog(napi_env env, napi_callback_info info) {
+  napi_status status;
+
+  size_t argc = 1;
+  napi_value args[1];
+  napi_value jsthis;
+  status = napi_get_cb_info(env, info, &argc, args, &jsthis, nullptr);
+  assert(status == napi_ok);
+
+  if (argc < 1) {
+    napi_throw_type_error(env, nullptr, "Expected 1 argument: data length");
+    return nullptr;
+  }
+
+  // Get the arguments from JavaScript
+  uint32_t data_len;
+  status = napi_get_value_uint32(env, args[0], &data_len);
+  assert(status == napi_ok);
+
+  Fwlib* obj;
+  status = napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj));
+  assert(status == napi_ok);
+
+  unsigned short length = data_len;
+  short blknum;
+  char buffer[data_len + 1];  // Allocate buffer with an extra byte for null-termination
+  memset(buffer, 0, sizeof(buffer));
+
+  short ret = cnc_rdexecprog(obj->libh, &length, &blknum, buffer);
+
+  if (ret != EW_OK) {
+    char code[8] = "";
+    snprintf(code, sizeof(code), "%d", ret);
+    const char* msg;
+    switch (ret) {
+      case EW_LENGTH:
+        msg = "Data block length error: Length of the block is illegal.";
+        break;
+      case EW_NOOPT:
+        msg = "Required option is not available.";
+        break;
+      default:
+        msg = "An unknown error occurred.";
+        break;
+    }
+    status = napi_throw_error(env, code, msg);
+    assert(status == napi_ok);
+    return nullptr;
+  }
+
+  napi_value result;
+  status = napi_create_object(env, &result);
+  assert(status == napi_ok);
+
+  napi_value val;
+  status = napi_create_uint32(env, length, &val);
+  assert(status == napi_ok);
+  status = napi_set_named_property(env, result, "read_length", val);
+  assert(status == napi_ok);
+
+  status = napi_create_int32(env, blknum, &val);
+  assert(status == napi_ok);
+  status = napi_set_named_property(env, result, "block_number", val);
+  assert(status == napi_ok);
+
+  status = napi_create_string_utf8(env, buffer, length, &val);
   assert(status == napi_ok);
   status = napi_set_named_property(env, result, "data", val);
   assert(status == napi_ok);
