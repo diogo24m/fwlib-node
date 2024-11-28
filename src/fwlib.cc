@@ -43,12 +43,13 @@ napi_value Fwlib::Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_METHOD("rdexecprog", Rdexecprog),
       DECLARE_NAPI_METHOD("rdprogdir2", Rdprogdir2),
       DECLARE_NAPI_METHOD("rdprogdir3", Rdprogdir3),
+      DECLARE_NAPI_METHOD("rdproginfo", Rdproginfo),
       DECLARE_NAPI_METHOD("rdpmacro", Rdpmacro),
       DECLARE_NAPI_METHOD("rdopmsg", Rdopmsg),
   };
 
   napi_value cons;
-  status = napi_define_class(env, "Fwlib", NAPI_AUTO_LENGTH, New, nullptr, 19,
+  status = napi_define_class(env, "Fwlib", NAPI_AUTO_LENGTH, New, nullptr, 20,
                              properties, &cons);
   assert(status == napi_ok);
   napi_ref* constructor = new napi_ref;
@@ -1564,6 +1565,59 @@ napi_value Fwlib::Rdpmacro(napi_env env, napi_callback_info info) {
   status = napi_create_int32(env, pmacro.dec_val, &val);
   assert(status == napi_ok);
   status = napi_set_named_property(env, result, "dec_val", val);
+  assert(status == napi_ok);
+
+  return result;
+}
+
+napi_value Fwlib::Rdproginfo(napi_env env, napi_callback_info info) {
+  napi_status status;
+
+  napi_value jsthis;
+  status = napi_get_cb_info(env, info, nullptr, nullptr, &jsthis, nullptr);
+  assert(status == napi_ok);
+
+  Fwlib* obj;
+  status = napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj));
+  assert(status == napi_ok);
+
+  ODBNC prginfo;
+  short type = 0; // Binary format
+  short length = 12; // Length of data block for binary
+  short ret = cnc_rdproginfo(obj->libh, type, length, &prginfo);
+
+  if (ret != EW_OK) {
+    char code[8] = "";
+    const char* msg = "An unknown error occurred.";
+    snprintf(code, 7, "%d", ret);
+    status = napi_throw_error(env, code, msg);
+    assert(status == napi_ok);
+    return nullptr;
+  }
+
+  napi_value result;
+  status = napi_create_object(env, &result);
+  assert(status == napi_ok);
+
+  napi_value val;
+  status = napi_create_int32(env, prginfo.u.bin.reg_prg, &val);
+  assert(status == napi_ok);
+  status = napi_set_named_property(env, result, "reg_prg", val);
+  assert(status == napi_ok);
+
+  status = napi_create_int32(env, prginfo.u.bin.unreg_prg, &val);
+  assert(status == napi_ok);
+  status = napi_set_named_property(env, result, "unreg_prg", val);
+  assert(status == napi_ok);
+
+  status = napi_create_int64(env, prginfo.u.bin.used_mem, &val);
+  assert(status == napi_ok);
+  status = napi_set_named_property(env, result, "used_mem", val);
+  assert(status == napi_ok);
+
+  status = napi_create_int64(env, prginfo.u.bin.unused_mem, &val);
+  assert(status == napi_ok);
+  status = napi_set_named_property(env, result, "unused_mem", val);
   assert(status == napi_ok);
 
   return result;

@@ -30,6 +30,7 @@ class Fwlib {
   static napi_value Rdexecprog(napi_env env, napi_callback_info info);
   static napi_value Rdprogdir2(napi_env env, napi_callback_info info);
   static napi_value Rdprogdir3(napi_env env, napi_callback_info info);
+  static napi_value Rdproginfo(napi_env env, napi_callback_info info);
   static napi_value Rdpmacro(napi_env env, napi_callback_info info);
   static napi_value Rdopmsg(napi_env env, napi_callback_info info);
   static inline napi_value Constructor(napi_env env);
