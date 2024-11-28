@@ -43,10 +43,11 @@ napi_value Fwlib::Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_METHOD("rdexecprog", Rdexecprog),
       DECLARE_NAPI_METHOD("rdprogdir2", Rdprogdir2),
       DECLARE_NAPI_METHOD("rdprogdir3", Rdprogdir3),
+      DECLARE_NAPI_METHOD("rdopmsg", Rdopmsg),
   };
 
   napi_value cons;
-  status = napi_define_class(env, "Fwlib", NAPI_AUTO_LENGTH, New, nullptr, 17,
+  status = napi_define_class(env, "Fwlib", NAPI_AUTO_LENGTH, New, nullptr, 18,
                              properties, &cons);
   assert(status == napi_ok);
   napi_ref* constructor = new napi_ref;
@@ -1454,6 +1455,59 @@ napi_value Fwlib::Rdprogdir3(napi_env env, napi_callback_info info) {
 
     top_prog = prg[num_prog - 1].number + 1;
   } while (num_prog >= BUFSIZE);
+
+  return result;
+}
+
+napi_value Fwlib::Rdopmsg(napi_env env, napi_callback_info info) {
+  napi_status status;
+
+  napi_value jsthis;
+  status = napi_get_cb_info(env, info, nullptr, nullptr, &jsthis, nullptr);
+  assert(status == napi_ok);
+
+  Fwlib* obj;
+  status = napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj));
+  assert(status == napi_ok);
+
+  OPMSG opmsg;
+  short type = 0; // Read 1st operator message
+  short length = sizeof(OPMSG);
+  short ret = cnc_rdopmsg(obj->libh, type, length, &opmsg);
+
+  if (ret != EW_OK) {
+    char code[8] = "";
+    const char* msg = "An unknown error occurred.";
+    snprintf(code, 7, "%d", ret);
+    status = napi_throw_error(env, code, msg);
+    assert(status == napi_ok);
+    return nullptr;
+  }
+
+  napi_value result;
+  status = napi_create_object(env, &result);
+  assert(status == napi_ok);
+
+  napi_value val;
+  status = napi_create_int32(env, opmsg.datano, &val);
+  assert(status == napi_ok);
+  status = napi_set_named_property(env, result, "datano", val);
+  assert(status == napi_ok);
+
+  status = napi_create_int32(env, opmsg.type, &val);
+  assert(status == napi_ok);
+  status = napi_set_named_property(env, result, "type", val);
+  assert(status == napi_ok);
+
+  status = napi_create_int32(env, opmsg.char_num, &val);
+  assert(status == napi_ok);
+  status = napi_set_named_property(env, result, "char_num", val);
+  assert(status == napi_ok);
+
+  status = napi_create_string_utf8(env, opmsg.data, strlen(opmsg.data), &val);
+  assert(status == napi_ok);
+  status = napi_set_named_property(env, result, "message", val);
+  assert(status == napi_ok);
 
   return result;
 }
