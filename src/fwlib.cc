@@ -43,11 +43,12 @@ napi_value Fwlib::Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_METHOD("rdexecprog", Rdexecprog),
       DECLARE_NAPI_METHOD("rdprogdir2", Rdprogdir2),
       DECLARE_NAPI_METHOD("rdprogdir3", Rdprogdir3),
+      DECLARE_NAPI_METHOD("rdpmacro", Rdpmacro),
       DECLARE_NAPI_METHOD("rdopmsg", Rdopmsg),
   };
 
   napi_value cons;
-  status = napi_define_class(env, "Fwlib", NAPI_AUTO_LENGTH, New, nullptr, 18,
+  status = napi_define_class(env, "Fwlib", NAPI_AUTO_LENGTH, New, nullptr, 19,
                              properties, &cons);
   assert(status == napi_ok);
   napi_ref* constructor = new napi_ref;
@@ -1507,6 +1508,62 @@ napi_value Fwlib::Rdopmsg(napi_env env, napi_callback_info info) {
   status = napi_create_string_utf8(env, opmsg.data, strlen(opmsg.data), &val);
   assert(status == napi_ok);
   status = napi_set_named_property(env, result, "message", val);
+  assert(status == napi_ok);
+
+  return result;
+}
+
+napi_value Fwlib::Rdpmacro(napi_env env, napi_callback_info info) {
+  napi_status status;
+
+  napi_value jsthis, args[1];
+  size_t argc = 1;
+  status = napi_get_cb_info(env, info, &argc, args, &jsthis, nullptr);
+  assert(status == napi_ok);
+
+  if (argc < 1) {
+    napi_throw_type_error(env, nullptr, "Expected one argument for macro variable number");
+    return nullptr;
+  }
+
+  int64_t number;
+  status = napi_get_value_int64(env, args[0], &number);
+  assert(status == napi_ok);
+
+  Fwlib* obj;
+  status = napi_unwrap(env, jsthis, reinterpret_cast<void**>(&obj));
+  assert(status == napi_ok);
+
+  ODBPM pmacro;
+  short ret = cnc_rdpmacro(obj->libh, number, &pmacro);
+
+  if (ret != EW_OK) {
+    char code[8] = "";
+    const char* msg = "An unknown error occurred.";
+    snprintf(code, 7, "%d", ret);
+    status = napi_throw_error(env, code, msg);
+    assert(status == napi_ok);
+    return nullptr;
+  }
+
+  napi_value result;
+  status = napi_create_object(env, &result);
+  assert(status == napi_ok);
+
+  napi_value val;
+  status = napi_create_int32(env, pmacro.datano, &val);
+  assert(status == napi_ok);
+  status = napi_set_named_property(env, result, "datano", val);
+  assert(status == napi_ok);
+
+  status = napi_create_int32(env, pmacro.mcr_val, &val);
+  assert(status == napi_ok);
+  status = napi_set_named_property(env, result, "mcr_val", val);
+  assert(status == napi_ok);
+
+  status = napi_create_int32(env, pmacro.dec_val, &val);
+  assert(status == napi_ok);
+  status = napi_set_named_property(env, result, "dec_val", val);
   assert(status == napi_ok);
 
   return result;
